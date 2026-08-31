@@ -11,19 +11,24 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Set your Admin Credentials here
 const ADMIN_USER = "admin";
 const ADMIN_PASS = "faculty123";
 
-// Authentication Middleware
+// Updated Authentication Middleware
 const requireAuth = (req, res, next) => {
   if (req.cookies && req.cookies.admin_session === 'authenticated') {
-    next();
-  } else {
-    res.redirect('/login');
+    return next();
   }
+  
+  // If request comes from an API call (fetch), send 401 instead of redirecting
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Unauthorized. Please login again.' });
+  }
+
+  // If request comes from a browser navigation (page load), redirect to /login
+  res.redirect('/login');
 };
 
 // SQLite Database Setup
@@ -57,6 +62,9 @@ db.serialize(() => {
   });
 });
 
+// Serve Static Files
+app.use(express.static(path.join(__dirname, 'public')));
+
 // PUBLIC: Student Form Page & API
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
@@ -79,8 +87,12 @@ app.get('/login', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    // Set a secure authentication cookie valid for 2 hours
-    res.cookie('admin_session', 'authenticated', { httpOnly: true, maxAge: 2 * 60 * 60 * 1000 });
+    // Set authentication cookie
+    res.cookie('admin_session', 'authenticated', { 
+      httpOnly: true, 
+      maxAge: 2 * 60 * 60 * 1000,
+      sameSite: 'lax'
+    });
     res.json({ status: 'success' });
   } else {
     res.status(401).json({ error: 'Invalid Credentials' });
@@ -92,7 +104,7 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
-// PROTECTED ROUTES (Redirects to /login if unauthenticated)
+// PROTECTED ROUTES
 app.get('/admin', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
