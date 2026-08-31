@@ -79,6 +79,15 @@ app.post('/api/register', (req, res) => {
   });
 });
 
+// AUTH STATUS ENDPOINT (Required by admin.html)
+app.get('/api/auth-status', (req, res) => {
+  if (req.cookies && req.cookies.admin_session === 'authenticated') {
+    res.json({ isAuthenticated: true });
+  } else {
+    res.json({ isAuthenticated: false });
+  }
+});
+
 // LOGIN ROUTES
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
