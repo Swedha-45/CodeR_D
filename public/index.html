@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Club Registration</title>
+  <style>
+    :root {
+      --bg: #12141c;
+      --surface: #1a1d29;
+      --surface-2: #20232f;
+      --border: #2c303e;
+      --text: #edeef2;
+      --accent: #e3a008;
+      --error: #ff4d4d;
+    }
+    * { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: sans-serif; padding: 30px 20px; margin: 0; }
+    .card { max-width: 550px; margin: 0 auto; background: var(--surface); padding: 25px; border-radius: 8px; border: 1px solid var(--border); }
+    h2 { margin-top: 0; font-size: 22px; margin-bottom: 20px; }
+    .field { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 6px; font-size: 13.5px; color: var(--text); font-weight: 600; }
+    input, select, textarea { width: 100%; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); color: #fff; border-radius: 6px; font-size: 14px; outline: none; }
+    textarea { resize: vertical; min-height: 90px; font-family: inherit; }
+    
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    
+    /* Error states */
+    input.invalid, select.invalid, textarea.invalid { border-color: var(--error) !important; }
+    .err-msg { color: var(--error); font-size: 11.5px; margin-top: 4px; display: none; }
+    
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button { width: 100%; padding: 12px; background: var(--accent); color: #12141c; border: none; font-weight: bold; font-size: 15px; cursor: pointer; border-radius: 6px; margin-top: 10px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Club Position Registration</h2>
+  <form id="regForm" novalidate>
+    
+    <div class="field">
+      <label>Register Number</label>
+      <input type="text" id="regNumber" placeholder="e.g. 3122230011XX">
+      <div class="err-msg" id="err-regNumber">Enter a valid Register Number (8-15 letters/numbers).</div>
+    </div>
+
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="fullName" placeholder="Student Name">
+      <div class="err-msg" id="err-fullName">Enter your full name (letters and spaces only).</div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Mobile Number</label>
+        <input type="tel" id="mobile" maxlength="10" placeholder="10 digits">
+        <div class="err-msg" id="err-mobile">Enter a valid 10-digit mobile number.</div>
+      </div>
+      <div class="field">
+        <label>Email ID</label>
+        <input type="email" id="email" placeholder="name@college.edu">
+        <div class="err-msg" id="err-email">Enter a valid email address.</div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Department</label>
+        <input type="text" id="department" placeholder="e.g. CSE">
+        <div class="err-msg" id="err-department">Please enter your department.</div>
+      </div>
+      <div class="field">
+        <label>Year of Study</label>
+        <select id="year">
+          <option value="">Select Year</option>
+          <option value="I">I</option>
+          <option value="II">II</option>
+          <option value="III">III</option>
+          <option value="IV">IV</option>
+        </select>
+        <div class="err-msg" id="err-year">Select your year of study.</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Select Club</label>
+      <select id="club">
+        <option value="">-- Choose Club --</option>
+        <option value="Code Club">Code Club</option>
+        <option value="R&D Club">R&D Club</option>
+      </select>
+      <div class="err-msg" id="err-club">Please select a club.</div>
+    </div>
+
+    <div class="field">
+      <label>Preferred Position</label>
+      <select id="position" disabled>
+        <option value="">Select a club first</option>
+      </select>
+      <div class="err-msg" id="err-position">Please select a position.</div>
+    </div>
+
+    <div class="field" id="reasonContainer" style="display: none;">
+      <label id="reasonLabel">Why are you interested in applying for this role?</label>
+      <textarea id="reason" placeholder="Write your statement of interest..."></textarea>
+      <div class="err-msg" id="err-reason">Please provide a statement (at least 15 characters).</div>
+    </div>
+
+    <button type="submit" id="submitBtn">Submit Registration</button>
+  </form>
+</div>
+
+<script>
+  const clubPositions = {
+    "Code Club": [
+      "President",
+      "Vice-President",
+      "Secretary",
+      "Technical Lead",
+      "Competitive Programming Lead",
+      "Event Lead",
+      "Outreach Lead"
+    ],
+    "R&D Club": [
+      "President",
+      "Vice President",
+      "Secretary",
+      "Outreach Lead",
+      "Event Lead"
+    ]
+  };
+
+  const clubSelect = document.getElementById('club');
+  const positionSelect = document.getElementById('position');
+  const reasonContainer = document.getElementById('reasonContainer');
+  const reasonLabel = document.getElementById('reasonLabel');
+
+  clubSelect.addEventListener('change', () => {
+    const selected = clubSelect.value;
+    
+    if (selected && clubPositions[selected]) {
+      const options = clubPositions[selected]
+        .map(pos => `<option value="${pos}">${pos}</option>`)
+        .join('');
+      
+      positionSelect.innerHTML = '<option value="">-- Choose Position --</option>' + options;
+      positionSelect.disabled = false;
+      
+      if (selected === "Code Club") {
+        reasonLabel.innerText = "Why are you interested in applying for this role in the CSE CODE CLUB Student Committee?";
+      } else if (selected === "R&D Club") {
+        reasonLabel.innerText = "Why are you interested in applying for this role in the R&D CLUB Student Committee?";
+      }
+      reasonContainer.style.display = 'block';
+    } else {
+      positionSelect.innerHTML = '<option value="">Select a club first</option>';
+      positionSelect.disabled = true;
+      reasonContainer.style.display = 'none';
+    }
+  });
+
+  // Validation Patterns & Rules
+  const validators = {
+    regNumber: val => /^[a-zA-Z0-9]{8,15}$/.test(val),
+    fullName: val => /^[a-zA-Z\s]{2,50}$/.test(val),
+    mobile: val => /^[0-9]{10}$/.test(val),
+    email: val => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val),
+    department: val => val.trim().length >= 2,
+    year: val => val !== "",
+    club: val => val !== "",
+    position: val => val !== "",
+    reason: val => val.trim().length >= 15
+  };
+
+  function validateField(id) {
+    const field = document.getElementById(id);
+    const errEl = document.getElementById(`err-${id}`);
+    const isValid = validators[id](field.value);
+
+    if (!isValid) {
+      field.classList.add('invalid');
+      if (errEl) errEl.style.display = 'block';
+    } else {
+      field.classList.remove('invalid');
+      if (errEl) errEl.style.display = 'none';
+    }
+    return isValid;
+  }
+
+  // Attach real-time validation clearing on user input
+  Object.keys(validators).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => validateField(id));
+      el.addEventListener('change', () => validateField(id));
+    }
+  });
+
+  document.getElementById('regForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Run validation across all fields
+    const fieldsToValidate = ['regNumber', 'fullName', 'mobile', 'email', 'department', 'year', 'club', 'position'];
+    if (clubSelect.value) fieldsToValidate.push('reason');
+
+    let isFormValid = true;
+    fieldsToValidate.forEach(id => {
+      const valid = validateField(id);
+      if (!valid) isFormValid = false;
+    });
+
+    if (!isFormValid) return; // Stop submission if any validation fails
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerText = "Submitting...";
+
+    const payload = {
+      regNumber: document.getElementById('regNumber').value.trim(),
+      fullName: document.getElementById('fullName').value.trim(),
+      mobile: document.getElementById('mobile').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      department: document.getElementById('department').value.trim(),
+      year: document.getElementById('year').value,
+      club: clubSelect.value,
+      position: positionSelect.value,
+      reason: document.getElementById('reason').value.trim()
+    };
+
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        alert("Registration Submitted Successfully!");
+        document.getElementById('regForm').reset();
+        positionSelect.innerHTML = '<option value="">Select a club first</option>';
+        positionSelect.disabled = true;
+        reasonContainer.style.display = 'none';
+      } else {
+        alert("Server error. Please try again.");
+      }
+    } catch (err) {
+      alert("Network error.");
+    } finally {
+      btn.disabled = false;
+      btn.innerText = "Submit Registration";
+    }
+  });
+</script>
+</body>
+</html>
