@@ -17,7 +17,7 @@ const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "faculty123";
 
 // MongoDB Atlas Connection Setup
-const MONGO_URI ="mongodb+srv://swelee45_db_user:uT5QdMGm2YzvYMhJ@cluster0.h9qwo1e.mongodb.net/?appName=Cluster0";
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://db_user:<password>@cluster0.h9qwo1e.mongodb.net/?appName=Cluster0";
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB Atlas successfully.'))
