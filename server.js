@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const path = require('path');
 const cors = require('cors');
@@ -12,11 +12,34 @@ app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 
-// Set your Admin Credentials here
-const ADMIN_USER = "admin";
-const ADMIN_PASS = "faculty123";
+// Admin Credentials (uses Environment Variables or defaults to admin / faculty123)
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_PASS = process.env.ADMIN_PASS || "faculty123";
 
-// Updated Authentication Middleware
+// MongoDB Atlas Connection Setup
+const MONGO_URI ="mongodb+srv://swelee45_db_user:uT5QdMGm2YzvYMhJ@cluster0.h9qwo1e.mongodb.net/?appName=Cluster0";
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('Connected to MongoDB Atlas successfully.'))
+  .catch((err) => console.error('MongoDB Connection Error:', err));
+
+// Define Student Registration Schema & Model
+const registrationSchema = new mongoose.Schema({
+  regNumber: String,
+  fullName: String,
+  mobile: String,
+  email: String,
+  department: String,
+  year: String,
+  club: String,
+  position: String,
+  reason: String,
+  submittedAt: { type: Date, default: Date.now }
+});
+
+const Registration = mongoose.model('Registration', registrationSchema);
+
+// Authentication Middleware
 const requireAuth = (req, res, next) => {
   if (req.cookies && req.cookies.admin_session === 'authenticated') {
     return next();
@@ -31,55 +54,23 @@ const requireAuth = (req, res, next) => {
   res.redirect('/login');
 };
 
-// SQLite Database Setup
-const db = new sqlite3.Database('./club.db', (err) => {
-  if (err) console.error('Database Error:', err);
-  else console.log('Connected to SQLite Database.');
-});
-
-// Create Table and ensure 'reason' column exists
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS registrations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      regNumber TEXT,
-      fullName TEXT,
-      mobile TEXT,
-      email TEXT,
-      department TEXT,
-      year TEXT,
-      club TEXT,
-      position TEXT,
-      reason TEXT,
-      submittedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  db.run(`ALTER TABLE registrations ADD COLUMN reason TEXT`, (err) => {
-    if (err && !err.message.includes('duplicate column name')) {
-      console.log('Column setup complete.');
-    }
-  });
-});
-
 // Serve Static Files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // PUBLIC: Student Form Page & API
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.post('/api/register', (req, res) => {
-  const { regNumber, fullName, mobile, email, department, year, club, position, reason } = req.body;
-  const sql = `INSERT INTO registrations (regNumber, fullName, mobile, email, department, year, club, position, reason) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  
-  db.run(sql, [regNumber, fullName, mobile, email, department, year, club, position, reason], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ status: 'success', id: this.lastID });
-  });
+app.post('/api/register', async (req, res) => {
+  try {
+    const newStudent = new Registration(req.body);
+    await newStudent.save();
+    res.json({ status: 'success', id: newStudent._id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// AUTH STATUS ENDPOINT (Required by admin.html)
+// AUTH STATUS ENDPOINT
 app.get('/api/auth-status', (req, res) => {
   if (req.cookies && req.cookies.admin_session === 'authenticated') {
     res.json({ isAuthenticated: true });
@@ -96,7 +87,6 @@ app.get('/login', (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    // Set authentication cookie
     res.cookie('admin_session', 'authenticated', { 
       httpOnly: true, 
       maxAge: 2 * 60 * 60 * 1000,
@@ -118,26 +108,34 @@ app.get('/admin', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/api/students', requireAuth, (req, res) => {
-  db.all('SELECT * FROM registrations ORDER BY id DESC', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/students', requireAuth, async (req, res) => {
+  try {
+    const students = await Registration.find().sort({ submittedAt: -1 });
+    // Format _id to id for seamless frontend table rendering
+    const formatted = students.map(student => ({
+      ...student._doc,
+      id: student._id
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/students/:id', requireAuth, (req, res) => {
-  const id = req.params.id;
-  db.run('DELETE FROM registrations WHERE id = ?', [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete('/api/students/:id', requireAuth, async (req, res) => {
+  try {
+    await Registration.findByIdAndDelete(req.params.id);
     res.json({ status: 'success' });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/export', requireAuth, (req, res) => {
-  db.all('SELECT regNumber, fullName, mobile, email, department, year, club, position, reason, submittedAt FROM registrations', [], (err, rows) => {
-    if (err) return res.status(500).send('Database export error');
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+app.get('/api/export', requireAuth, async (req, res) => {
+  try {
+    const students = await Registration.find({}, '-_id -__v').lean();
+    
+    const worksheet = XLSX.utils.json_to_sheet(students);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Registrations');
 
@@ -146,7 +144,9 @@ app.get('/api/export', requireAuth, (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="Club_Registrations.xlsx"');
     res.send(buffer);
-  });
+  } catch (err) {
+    res.status(500).send('Database export error');
+  }
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
